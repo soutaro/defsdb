@@ -53,20 +53,20 @@ describe Defsdb::Dumper do
 
   describe "toplevel constant" do
     it "contains constant" do
-      entry = dumper.constants['TestConstant']
+      entry = dumper.constants[:TestConstant]
 
       refute_nil entry
       assert_equal 'value', entry[:type]
     end
 
     it "records class of constant" do
-      entry = dumper.constants['TestConstant']
+      entry = dumper.constants[:TestConstant]
 
       assert_equal "TestClass", entry[:class][:name]
     end
 
     it "contains methods" do
-      entry = dumper.constants['TestConstant']
+      entry = dumper.constants[:TestConstant]
       assert(entry[:methods][:public].any? {|m| m[:name] == 'test_method' })
       assert(entry[:methods][:private].any? {|m| m[:name] == 'test_private_method' })
       assert(entry[:methods][:protected].any? {|m| m[:name] == 'test_protected_method' })
@@ -75,7 +75,7 @@ describe Defsdb::Dumper do
 
   describe "classes" do
     it "contains class definition as constant" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
 
       refute_nil constant
       assert_equal 'class', constant[:type]
@@ -84,14 +84,14 @@ describe Defsdb::Dumper do
     end
 
     it "contains class definition" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
 
       refute_nil klass
     end
 
     it "contains methods" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
 
       assert(klass[:methods][:public].any? {|m| m[:name] == 'test_singleton_method' })
@@ -100,7 +100,7 @@ describe Defsdb::Dumper do
     end
 
     it "contains instance methods" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
 
       assert(klass[:instance_methods][:public].any? {|m| m[:name] == 'test_method' })
@@ -109,7 +109,7 @@ describe Defsdb::Dumper do
     end
 
     it "has super class" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
 
       refute_nil klass[:superclass]
@@ -117,16 +117,16 @@ describe Defsdb::Dumper do
     end
 
     it "has included modules" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
 
       assert(klass[:included_modules].any? {|m| m[:name] == "TestModule" })
     end
 
     it "has nested constant" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
-      nested = klass[:constants]['TestConstant']
+      nested = klass[:constants][:TestConstant]
 
       refute_nil nested
       assert_equal 'value', nested[:type]
@@ -134,11 +134,11 @@ describe Defsdb::Dumper do
     end
 
     it "does not have nested constants from Object" do
-      constant = dumper.constants['TestClass']
+      constant = dumper.constants[:TestClass]
       klass = dumper.classes[constant[:id]]
       constants = klass[:constants]
 
-      assert_nil constants['Enumerable']
+      assert_nil constants[:Enumerable]
     end
   end
 end

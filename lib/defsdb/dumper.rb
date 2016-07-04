@@ -10,7 +10,7 @@ module Defsdb
 
     def dump_constant(name, constant, env)
       if constant.is_a?(Module)
-        env[name.to_s] = {
+        env[name] = {
           type: const_type(constant),
           name: constant.name,
           id: constant.__id__
@@ -20,7 +20,7 @@ module Defsdb
       else
         dump_class(constant.class)
 
-        env[name.to_s] = {
+        env[name] = {
           type: const_type(constant),
           class: class_ref(constant.class),
           methods: {
