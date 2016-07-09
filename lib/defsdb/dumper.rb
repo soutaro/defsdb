@@ -1,13 +1,11 @@
 module Defsdb
   class Dumper
-    attr_reader :classes
-    attr_reader :constants
-    attr_reader :methods
+    attr_reader :toplevel
+    attr_reader :modules
 
     def initialize
-      @classes = {}
-      @constants = {}
-      @methods = {}
+      @modules = {}
+      @toplevel = {}
     end
 
     def dump_constant(name, constant, env)
@@ -18,13 +16,13 @@ module Defsdb
           id: constant.__id__
         }
 
-        dump_class(constant)
+        dump_module(constant)
       else
-        dump_class(constant.class)
+        dump_module(constant.class)
 
         env[name] = {
           type: const_type(constant),
-          class: class_ref(constant.class),
+          class: module_ref(constant.class),
           methods: {
             public: dump_methods(constant.public_methods(false)) {|name| constant.method(name) },
             private: dump_methods(constant.private_methods(false)) {|name| constant.method(name) },
@@ -34,33 +32,33 @@ module Defsdb
       end
     end
 
-    def dump_class(klass)
+    def dump_module(klass)
       id = klass.__id__
 
-      return if @classes[id]
+      return if @modules[id]
 
       hash =  {
         type: const_type(klass),
         name: klass.name,
         id: id
       }
-      @classes[id] = hash
+      @modules[id] = hash
 
       if klass.is_a?(Class)
         if klass.superclass
-          hash[:superclass] = class_ref(klass.superclass)
-          dump_class(klass.superclass)
+          hash[:superclass] = module_ref(klass.superclass)
+          dump_module(klass.superclass)
         end
       end
 
       hash[:included_modules] = klass.included_modules.map {|mod|
-        dump_class(mod)
-        class_ref(mod)
+        dump_module(mod)
+        module_ref(mod)
       }
 
       hash[:ancestors] = klass.ancestors.map {|mod|
-        dump_class(mod)
-        class_ref(mod)
+        dump_module(mod)
+        module_ref(mod)
       }
 
       hash[:instance_methods] = {
@@ -82,7 +80,7 @@ module Defsdb
       end
     end
 
-    def class_ref(klass)
+    def module_ref(klass)
       {
         id: klass.__id__,
         name: klass.name
@@ -103,18 +101,15 @@ module Defsdb
     def dump_methods(methods)
       methods.map do |name|
         method = yield(name)
-        id = "#{method.owner.__id__}:#{method.owner.name || "--"}:#{name}"
 
-        unless @methods[id]
-          @methods[id] = {
-            name: name.to_s,
-            location: method.source_location,
-            owner: class_ref(method.owner),
-            parameters: method.parameters
-          }
-        end
+        dump_module(method.owner)
 
-        { name: name.to_s, id: id }
+        {
+          name: name.to_s,
+          location: method.source_location,
+          owner: module_ref(method.owner),
+          parameters: method.parameters
+        }
       end
     end
 
@@ -132,16 +127,15 @@ module Defsdb
 
     def as_json
       {
-        classes: @classes,
-        toplevel: @constants,
-        methods: @methods
+        modules: @modules,
+        toplevel: @toplevel
       }
     end
 
     def run
       ::Object.constants.each do |name|
         safely_get_constant(::Object, name) do |constant|
-          dump_constant(name, constant, @constants) if constant
+          dump_constant(name, constant, @toplevel) if constant
         end
       end
 
