@@ -4,8 +4,8 @@ Gem::Specification.new do |s|
   s.name        = 'defsdb'
   s.version       = Defsdb::VERSION
   s.licenses    = ['MIT']
-  s.summary     = "Ruby class/method definitions database"
-  s.description = "Ruby class/method definitions database"
+  s.summary     = "Ruby runtime class/method definitions database"
+  s.description = "Ruby runtime class/method definitions database"
   s.authors     = ["Soutaro Matsumoto"]
   s.email       = 'matsumoto@soutaro.com'
   s.homepage    = 'https://github.com/soutaro/defsdb'
