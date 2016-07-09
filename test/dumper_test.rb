@@ -1,55 +1,7 @@
 require 'test_helper'
 
-class TestSuperClass
-end
-
-module TestModule
-end
-
-class TestClass < TestSuperClass
-  include TestModule
-
-  TestConstant = TestSuperClass.new
-
-  def test_method
-
-  end
-
-  private def test_private_method
-
-  end
-
-  protected def test_protected_method
-
-  end
-end
-
-class <<TestClass
-  def test_singleton_method
-
-  end
-
-  private def test_private_singleton_method
-
-  end
-
-  protected def test_protected_singleton_method
-
-  end
-end
-
-TestConstant = TestClass.new
-
 describe Defsdb::Dumper do
-  let(:dumper) { $dumper }
-  let(:result) { $dumper.as_json }
-
-  before do
-    unless $dumper
-      $dumper = Defsdb::Dumper.new
-      $dumper.run
-    end
-  end
+  include WithDumper
 
   describe "toplevel constant" do
     it "contains constant" do
