@@ -66,10 +66,15 @@ describe Defsdb::Dumper do
     end
 
     it "contains methods" do
-      entry = dumper.constants[:TestConstant]
-      assert(entry[:methods][:public].any? {|m| m[:name] == 'test_method' })
-      assert(entry[:methods][:private].any? {|m| m[:name] == 'test_private_method' })
-      assert(entry[:methods][:protected].any? {|m| m[:name] == 'test_protected_method' })
+      constant = dumper.constants[:TestConstant]
+
+      assert(constant[:methods][:public].any? {|m| m[:name] == 'test_method' })
+      assert(constant[:methods][:private].any? {|m| m[:name] == 'test_private_method' })
+      assert(constant[:methods][:protected].any? {|m| m[:name] == 'test_protected_method' })
+
+      each_method constant[:methods] do |m|
+        refute_nil dumper.methods[m[:id]]
+      end
     end
   end
 
@@ -97,6 +102,10 @@ describe Defsdb::Dumper do
       assert(klass[:methods][:public].any? {|m| m[:name] == 'test_singleton_method' })
       assert(klass[:methods][:private].any? {|m| m[:name] == 'test_private_singleton_method' })
       assert(klass[:methods][:protected].any? {|m| m[:name] == 'test_protected_singleton_method' })
+
+      each_method klass[:methods] do |m|
+        refute_nil dumper.methods[m[:id]]
+      end
     end
 
     it "contains instance methods" do
@@ -106,6 +115,10 @@ describe Defsdb::Dumper do
       assert(klass[:instance_methods][:public].any? {|m| m[:name] == 'test_method' })
       assert(klass[:instance_methods][:private].any? {|m| m[:name] == 'test_private_method' })
       assert(klass[:instance_methods][:protected].any? {|m| m[:name] == 'test_protected_method' })
+
+      each_method klass[:instance_methods] do |m|
+        refute_nil dumper.methods[m[:id]]
+      end
     end
 
     it "has super class" do
@@ -140,5 +153,23 @@ describe Defsdb::Dumper do
 
       assert_nil constants[:Enumerable]
     end
+
+    it "does not have inherited methods" do
+      constant = dumper.constants[:TestClass]
+      klass = dumper.classes[constant[:id]]
+
+      assert(klass[:instance_methods][:public].none? {|m| m[:name] == "__id__" })
+    end
+
+    it "does contain new method" do
+      constant = dumper.constants[:TestClass]
+      klass = dumper.classes[constant[:id]]
+
+      assert(klass[:methods][:public].any? {|m| m[:name] == "new" })
+    end
+  end
+
+  def each_method(methods, &block)
+    (methods[:public] + methods[:private] + methods[:protected]).each(&block)
   end
 end
