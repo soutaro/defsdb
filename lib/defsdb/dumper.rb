@@ -2,10 +2,12 @@ module Defsdb
   class Dumper
     attr_reader :toplevel
     attr_reader :modules
+    attr_reader :methods
 
     def initialize
       @modules = {}
       @toplevel = {}
+      @methods = {}
     end
 
     def dump_constant(name, constant, env)
@@ -13,7 +15,7 @@ module Defsdb
         env[name] = {
           type: const_type(constant),
           name: constant.name,
-          id: constant.__id__
+          id: constant.__id__.to_s
         }
 
         dump_module(constant)
@@ -24,16 +26,16 @@ module Defsdb
           type: const_type(constant),
           class: module_ref(constant.class),
           methods: {
-            public: dump_methods(constant.public_methods(false)) {|name| constant.method(name) },
-            private: dump_methods(constant.private_methods(false)) {|name| constant.method(name) },
-            protected: dump_methods(constant.protected_methods(false)) {|name| constant.method(name) }
+            public: dump_methods(constant.public_methods) {|name| constant.method(name) },
+            private: dump_methods(constant.private_methods) {|name| constant.method(name) },
+            protected: dump_methods(constant.protected_methods) {|name| constant.method(name) }
           }
         }
       end
     end
 
     def dump_module(klass)
-      id = klass.__id__
+      id = klass.__id__.to_s
 
       return if @modules[id]
 
@@ -62,15 +64,15 @@ module Defsdb
       }
 
       hash[:instance_methods] = {
-        public: dump_methods(klass.public_instance_methods(false)) {|name| klass.instance_method(name) },
-        private: dump_methods(klass.private_instance_methods(false)) {|name| klass.instance_method(name) },
-        protected: dump_methods(klass.protected_instance_methods(false)) {|name| klass.instance_method(name) }
+        public: dump_methods(klass.public_instance_methods) {|name| klass.instance_method(name) },
+        private: dump_methods(klass.private_instance_methods) {|name| klass.instance_method(name) },
+        protected: dump_methods(klass.protected_instance_methods) {|name| klass.instance_method(name) }
       }
 
       hash[:methods] = {
-        public: dump_methods(klass.public_methods(false)) {|name| klass.method(name) },
-        private: dump_methods(klass.private_methods(false)) {|name| klass.method(name) },
-        protected: dump_methods(klass.protected_methods(false)) {|name| klass.method(name) }
+        public: dump_methods(klass.public_methods) {|name| klass.method(name) },
+        private: dump_methods(klass.private_methods) {|name| klass.method(name) },
+        protected: dump_methods(klass.protected_methods) {|name| klass.method(name) }
       }
 
       hash[:constants] = klass.constants(false).each.with_object({}) do |name, env|
@@ -82,7 +84,7 @@ module Defsdb
 
     def module_ref(klass)
       {
-        id: klass.__id__,
+        id: klass.__id__.to_s,
         name: klass.name
       }
     end
@@ -101,14 +103,21 @@ module Defsdb
     def dump_methods(methods)
       methods.map do |name|
         method = yield(name)
-
         dump_module(method.owner)
 
-        {
+        id = "#{method.owner.__id__}:#{method.owner.name}:#{method.name}"
+
+        @methods[id] ||= {
+          id: id,
           name: name.to_s,
           location: method.source_location,
           owner: module_ref(method.owner),
           parameters: method.parameters
+        }
+
+        {
+          id: id,
+          name: name.to_s
         }
       end
     end
@@ -128,7 +137,9 @@ module Defsdb
     def as_json
       {
         modules: @modules,
-        toplevel: @toplevel
+        toplevel: @toplevel,
+        methods: @methods,
+        libs: $"
       }
     end
 

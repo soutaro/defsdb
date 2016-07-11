@@ -1,10 +1,21 @@
 module Defsdb
   class Database
-    attr_reader :toplevel, :modules
+    # Constant environment of toplevel
+    # String -> Constant | Module | Class
+    attr_reader :toplevel
+
+    # Module environment of toplevel
+    # String(id) -> Module | Class
+    attr_reader :modules
+
+    # Method body environment
+    # String(id) -> MethodBody
+    attr_reader :methods
 
     def initialize(json)
       @toplevel = {}
       @modules = {}
+      @methods = {}
 
       @json = json
 
@@ -19,19 +30,65 @@ module Defsdb
 
     def self.open(file)
       File.open(file) do |io|
-        json = JSON.load(io.read, symbolize_keys: true)
+        json = JSON.parse(io.read, symbolize_names: true)
         new(json)
       end
     end
 
-    class MethodDefinition
-      attr_reader :name, :owner, :location, :parameters, :instance_method, :visibility
+    def required_scripts
+      @json[:libs]
+    end
 
-      def initialize(name, owner, location, parameters, instance_method, visibility)
-        @name = name
-        @owner = owner
-        @location = location
-        @parameters = parameters
+    class InvalidModuleContextError < StandardError
+    end
+
+    def resolve_constant(path, context = [], outer_envs = [toplevel])
+      if path =~ /\A::/
+        context = []
+      end
+
+      context.each do |name|
+        constant = outer_envs.last[name]
+        if constant && constant.is_a?(Module)
+          outer_envs << constant.constants
+        else
+          raise InvalidModuleContextError, "Could not find module #{name}"
+        end
+      end
+
+      components = path.split("::").select {|s| s.length > 0 }
+
+      constant = nil
+      top_name = components.shift
+      while outer_envs.size > 0
+        env = outer_envs.pop
+        if env.has_key?(top_name)
+          constant = env[top_name]
+          break
+        end
+      end
+
+      return unless constant
+
+      if components.size > 0
+        env = constant.constants
+        while components.size > 0
+          component = components.shift
+
+          constant = env[component]
+          break unless constant
+          env = constant.constants
+        end
+      end
+
+      constant
+    end
+
+    class MethodDefinition
+      attr_reader :body, :visibility, :instance_method
+
+      def initialize(instance_method, visibility, body)
+        @body = body
         @instance_method = instance_method
         @visibility = visibility
       end
@@ -44,8 +101,23 @@ module Defsdb
         !@instance_method
       end
 
+      def name
+        body.name
+      end
+    end
+
+    class MethodBody
+      attr_reader :name, :owner, :location, :parameters
+
+      def initialize(name, owner, location, parameters)
+        @name = name
+        @owner = owner
+        @location = location
+        @parameters = parameters
+      end
+
       def inspect
-        "#<Defsdb::Database::MethodDefinition:#{__id__}, name=#{name}, owner=#{owner.name}, location=#{location}, parameters=#{parameters}, instance_method=#{instance_method?}, visibility=#{visibility}>"
+        "#<Defsdb::Database::MethodBody:#{__id__}, name=#{name}, owner=#{owner.name}, location=#{location}, parameters=#{parameters}>"
       end
     end
 
@@ -88,10 +160,18 @@ module Defsdb
 
         @defined_methods = []
       end
+
+      def inspect
+        "#<Defsdb::Database::Module:#{__id__}, name=#{name}, included_modules=#{included_modules.map(&:name)}, ancestors=#{ancestors.map(&:name)}, constants=#{constants.keys}, defined_methods=#{defined_methods.map(&:name)}>"
+      end
     end
 
     class Class < Module
       attr_accessor :superclass
+
+      def inspect
+        "#<Defsdb::Database::Class:#{__id__}, name=#{name}, superclass=#{superclass.name}, included_modules=#{included_modules.map(&:name)}, ancestors=#{ancestors.map(&:name)}, constants=#{constants.keys}, defined_methods=#{defined_methods.map(&:name)}>"
+      end
     end
 
     def each_module
@@ -128,8 +208,7 @@ module Defsdb
           end
         end
       else
-        mod = modules[json[:id]]
-        env[name] = mod
+        env[name] = load_module(find_class_definition(json[:id]))
       end
     end
 
@@ -166,23 +245,29 @@ module Defsdb
       end
 
       json[:constants].each do |name, json|
-        load_constant(name, json, mod.constants)
+        load_constant(name.to_s, json, mod.constants)
       end
 
       mod
     end
 
     def find_class_definition(id)
-      @json[:modules][id]
+      @json[:modules][id.to_sym]
     end
 
-    def load_method(json, visibility, instance_method)
-      MethodDefinition.new(json[:name],
-                           load_module(find_class_definition(json[:owner][:id])),
-                           json[:location],
-                           json[:parameters],
-                           instance_method,
-                           visibility)
+    def load_method(ref, visibility, instance_method)
+      id = ref[:id]
+
+      unless methods[id]
+        body_json = @json[:methods][id.to_sym]
+
+        methods[id] = MethodBody.new(body_json[:name],
+                                     load_module(find_class_definition(body_json[:owner][:id])),
+                                     body_json[:location],
+                                     body_json[:parameters])
+      end
+
+      MethodDefinition.new(instance_method, visibility, methods[ref[:id]])
     end
   end
 end
