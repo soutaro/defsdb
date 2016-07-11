@@ -24,7 +24,7 @@ describe Defsdb::Database do
   end
 
   describe "#each_module" do
-    it "enumerate modules" do
+    it "enumerates modules" do
       modules = Set.new
 
       database.each_module do |mod|
@@ -38,7 +38,7 @@ describe Defsdb::Database do
   end
 
   describe "#each_method" do
-    it "enumerate methods" do
+    it "enumerates methods" do
       methods = Set.new
 
       database.each_method do |method|
@@ -52,6 +52,14 @@ describe Defsdb::Database do
       assert(methods.any? {|method| method.name == "test_singleton_method" && method.visibility == :public && method.singleton_method? })
       assert(methods.any? {|method| method.name == "test_private_singleton_method" && method.visibility == :private && method.singleton_method? })
       assert(methods.any? {|method| method.name == "test_protected_singleton_method" && method.visibility == :protected && method.singleton_method? })
+    end
+  end
+
+  describe "#each_method_body" do
+    it "enumerates method bodies" do
+      database.each_method_body.with_object({}) do |body, _|
+        assert_kind_of Defsdb::Database::MethodBody, body
+      end
     end
   end
 

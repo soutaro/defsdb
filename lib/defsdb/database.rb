@@ -194,6 +194,16 @@ module Defsdb
       end
     end
 
+    def each_method_body
+      if block_given?
+        methods.each do |_, body|
+          yield(body)
+        end
+      else
+        enum_for :each_method_body
+      end
+    end
+
     private
 
     def load_constant(name, json, env)
