@@ -180,7 +180,7 @@ module Defsdb
           yield mod
         end
       else
-        Enumerator.new(self, :each_module)
+        enum_for :each_module
       end
     end
 
@@ -190,7 +190,7 @@ module Defsdb
           mod.defined_methods.each &block
         end
       else
-        Enumerator.new(self, :each_method)
+        enum_for :each_method
       end
     end
 
