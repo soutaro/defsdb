@@ -5,7 +5,11 @@ describe Defsdb::Database do
   include WithDumper
 
   let(:json) { dump_data("sample.rb") }
-  let(:database) { Defsdb::Database.new(json) }
+  let(:database) {
+    Defsdb::Database.new.tap do |database|
+      Defsdb::Database::LoadJSON.new(database, json).run
+    end
+  }
 
   it "loads database" do
     test_class = database.toplevel["TestClass"]

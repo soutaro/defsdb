@@ -12,31 +12,14 @@ module Defsdb
     # String(id) -> MethodBody
     attr_reader :methods
 
-    def initialize(json)
+    # Path to required libraries
+    attr_reader :required_libs
+
+    def initialize
       @toplevel = {}
       @modules = {}
       @methods = {}
-
-      @json = json
-
-      json[:modules].each do |_, json|
-        load_module(json)
-      end
-
-      json[:toplevel].each do |name, json|
-        load_constant(name.to_s, json, @toplevel)
-      end
-    end
-
-    def self.open(file)
-      File.open(file) do |io|
-        json = JSON.parse(io.read, symbolize_names: true)
-        new(json)
-      end
-    end
-
-    def required_scripts
-      @json[:libs]
+      @required_libs = []
     end
 
     def find_method_definition(class_path, instance_method: nil, singleton_method: nil)
@@ -212,92 +195,6 @@ module Defsdb
       else
         enum_for :each_method_body
       end
-    end
-
-    private
-
-    def load_constant(name, json, env)
-      if json[:type] == 'value'
-        klass = modules[json[:class][:id]]
-        constant = Constant.new(name, klass)
-        env[name] = constant
-
-        [:public, :protected, :private].each do |visibility|
-          json[:methods][visibility].each do |method|
-            constant.defined_methods << load_method(method, visibility, false)
-          end
-        end
-      else
-        env[name] = load_module(find_class_definition(json[:id]))
-      end
-    end
-
-    def load_module(json)
-      id = json[:id]
-      m =  @modules[id]
-      return m if m
-
-      case json[:type]
-      when 'module'
-        @modules[id] = mod = Module.new(json[:id], json[:name])
-      when 'class'
-        @modules[id] = mod = Class.new(json[:id], json[:name])
-        superclass = json[:superclass]
-        if superclass
-          mod.superclass = load_module(find_class_definition(superclass[:id]))
-        end
-      end
-
-      json[:included_modules].each do |ref|
-        mod.included_modules << load_module(find_class_definition(ref[:id]))
-      end
-
-      json[:ancestors].each do |ref|
-        mod.ancestors << load_module(find_class_definition(ref[:id]))
-      end
-
-      [:instance_methods, :methods].each do |key|
-        [:public, :protected, :private].each do |visibility|
-          json[key][visibility].each do |method|
-            mod.defined_methods << load_method(method, visibility, key == :instance_methods)
-          end
-        end
-      end
-
-      json[:constants].each do |name, json|
-        load_constant(name.to_s, json, mod.constants)
-      end
-
-      mod
-    end
-
-    def find_class_definition(id)
-      @json[:modules][id.to_sym]
-    end
-
-    def load_method(ref, visibility, instance_method)
-      id = ref[:id]
-
-      unless methods[id]
-        body_json = @json[:methods][id.to_sym]
-
-        parameters = body_json[:parameters].map {|param|
-          param.map {|x|
-            if x.is_a?(String)
-              x.to_sym
-            else
-              x
-            end
-          }
-        }
-
-        methods[id] = MethodBody.new(body_json[:name],
-                                     load_module(find_class_definition(body_json[:owner][:id])),
-                                     body_json[:location],
-                                     parameters)
-      end
-
-      MethodDefinition.new(instance_method, visibility, methods[ref[:id]])
     end
   end
 end
