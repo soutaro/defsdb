@@ -39,6 +39,16 @@ module Defsdb
       @json[:libs]
     end
 
+    def find_method_definition(class_path, instance_method: nil, singleton_method: nil)
+      raise "Cannot specify both instance_method and singleton_method" if instance_method && singleton_method
+      raise "Cannot leave both instance_method and singleton_method nil" if instance_method && singleton_method
+
+      mod = resolve_constant(class_path)
+      raise "Cannot find #{class_path}" unless mod.is_a?(Module)
+
+      mod.defined_methods.find {|method| (instance_method && method.name == instance_method) || (singleton_method && method.name == singleton_method) }
+    end
+
     class InvalidModuleContextError < StandardError
     end
 
