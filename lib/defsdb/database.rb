@@ -271,10 +271,20 @@ module Defsdb
       unless methods[id]
         body_json = @json[:methods][id.to_sym]
 
+        parameters = body_json[:parameters].map {|param|
+          param.map {|x|
+            if x.is_a?(String)
+              x.to_sym
+            else
+              x
+            end
+          }
+        }
+
         methods[id] = MethodBody.new(body_json[:name],
                                      load_module(find_class_definition(body_json[:owner][:id])),
                                      body_json[:location],
-                                     body_json[:parameters])
+                                     parameters)
       end
 
       MethodDefinition.new(instance_method, visibility, methods[ref[:id]])
