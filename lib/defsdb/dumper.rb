@@ -126,7 +126,9 @@ module Defsdb
       constant = nil
 
       begin
-        constant = mod.const_get(name)
+        unless mod.autoload?(name)
+          constant = mod.const_get(name)
+        end
       rescue NameError
         return nil
       end
