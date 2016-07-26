@@ -52,3 +52,11 @@ class A
     end
   end
 end
+
+X = 3
+
+class Y < A
+end
+
+class Z
+end

@@ -67,36 +67,39 @@ describe Defsdb::Database do
     end
   end
 
-  describe "#resolve_constant" do
-    it "lookup constant" do
-      constant = database.resolve_constant("TestSuperClass")
-      assert_equal(database.toplevel["TestSuperClass"], constant)
+  describe "#lookup_constant_path" do
+    it "lookup toplevel constant from toplevel" do
+      assert_equal "Fixnum", database.lookup_constant_path(["X"], current_module: nil, module_context: []).klass.name
+      assert_equal "Fixnum", database.lookup_constant_path([:root, "X"], current_module: nil, module_context: []).klass.name
     end
 
-    it "returns nil when no constant found" do
-      assert_nil database.resolve_constant("NoSuchConstant")
+    it "lookup nested constant from toplevel" do
+      assert_equal "Array", database.lookup_constant_path(["A", "X"], current_module: nil, module_context: []).klass.name
+      assert_equal "Array", database.lookup_constant_path(["Y", "X"], current_module: nil, module_context: []).klass.name
+    end
+  end
+
+  describe "#lookup_constant" do
+    it "lookup constant in toplevel" do
+      assert_equal "Fixnum", database.lookup_constant("X", database.object_class, []).klass.name
     end
 
-    it "lookup constant relatively" do
-      constant = database.resolve_constant("TestSuperClass", ["TestClass"])
-      assert_equal(database.toplevel["TestSuperClass"], constant)
+    it "lookup constant from context" do
+      z = database.toplevel["Z"]
+
+      a = database.toplevel["A"]
+      a_b = a.constants["B"]
+      a_b_c = a_b.constants["C"]
+      a_b_c_d = a_b_c.constants["D"]
+
+      assert_equal "TrueClass", database.lookup_constant("X", z, [a, a_b]).klass.name
+      assert_equal "String", database.lookup_constant("X", z, [a, a_b, a_b_c, a_b_c_d]).klass.name
     end
 
-    it "lookup constant relatively2" do
-      assert_equal "Array", database.resolve_constant("X", ["A"]).klass.name
-      assert_equal "TrueClass", database.resolve_constant("X", ["A", "B"]).klass.name
-      assert_equal "String", database.resolve_constant("X", ["A", "B", "C"]).klass.name
-      assert_equal "String", database.resolve_constant("X", ["A", "B", "C", "D"]).klass.name
-    end
+    it "lookup constant from ancestors" do
+      y = database.toplevel["Y"]
 
-    it "raises exception if context cannot be resolved" do
-      assert_raises Defsdb::Database::InvalidModuleContextError do
-        database.resolve_constant("X", ["ZZZ"])
-      end
-
-      assert_raises Defsdb::Database::InvalidModuleContextError do
-        database.resolve_constant("X", ["A", "X"])
-      end
+      assert_equal "Array", database.lookup_constant("X", y, []).klass.name
     end
   end
 end

@@ -35,46 +35,68 @@ module Defsdb
     class InvalidModuleContextError < StandardError
     end
 
-    def resolve_constant(path, context = [], outer_envs = [toplevel])
-      if path =~ /\A::/
-        context = []
+    class ConstantLookupError < StandardError
+    end
+
+    # module A
+    #   module B
+    #     module SomeModule
+    #       x = X::Y
+    #     end
+    #   end
+    # end
+    #
+    # => lookup_constant(["X", "Y"], current_module: some_module, module_context: ["A", "B"])
+    #
+    # x = ::A::B::C
+    #
+    # => lookup_constant([:root, "A", "B", "C"], current_module: nil, module_context: [])
+    #
+    def lookup_constant_path(path, current_module:, module_context:)
+      name = path.shift
+
+      top_mod = if name == :root
+                  name = path.shift
+                  lookup_constant(name, object_class, [])
+                else
+                  lookup_constant(name, current_module || object_class, module_context)
+                end
+
+      raise ConstantLookupError, "failed to lookup top constant #{name}" unless top_mod
+
+      path.inject(top_mod) {|mod, name|
+        lookup_constant_from_ancestors(name, mod) or raise ConstantLookupError, "#{name} is not defined in #{mod.name}"
+      }
+    end
+
+    def object_class
+      @object_class ||= toplevel["Object"]
+    end
+
+    def lookup_constant(name, current_module, module_context)
+      # Try current_module first
+      if current_module.constants.has_key?(name)
+        return current_module.constants[name]
       end
 
-      context.each do |name|
-        constant = outer_envs.last[name]
-        if constant && constant.is_a?(Module)
-          outer_envs << constant.constants
-        else
-          raise InvalidModuleContextError, "Could not find module #{name}"
-        end
+      # Try nested constant
+      until module_context.empty?
+        mod = module_context.pop
+        const = mod.constants[name]
+        return const if const
       end
 
-      components = path.split("::").select {|s| s.length > 0 }
+      # Lookup constant from ancestors
+      lookup_constant_from_ancestors(name, current_module)
+    end
 
-      constant = nil
-      top_name = components.shift
-      while outer_envs.size > 0
-        env = outer_envs.pop
-        if env.has_key?(top_name)
-          constant = env[top_name]
-          break
-        end
+    def lookup_constant_from_ancestors(name, mod)
+      mod.ancestors.each do |m|
+        c = m.constants[name]
+        return c if c
       end
 
-      return unless constant
-
-      if components.size > 0
-        env = constant.constants
-        while components.size > 0
-          component = components.shift
-
-          constant = env[component]
-          break unless constant
-          env = constant.constants
-        end
-      end
-
-      constant
+      nil
     end
 
     class MethodDefinition
