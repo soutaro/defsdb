@@ -1,3 +1,8 @@
+require 'pathname'
+require 'bundler/setup'
+
+$LOAD_PATH << (Pathname(__dir__).parent + "lib").to_s
+
 require 'defsdb'
 require 'minitest/autorun'
 
