@@ -22,12 +22,16 @@ module Defsdb
       @required_libs = []
     end
 
-    def find_method_definition(class_path, instance_method: nil, singleton_method: nil)
+    def find_method_definition(class_name, instance_method: nil, singleton_method: nil)
       raise "Cannot specify both instance_method and singleton_method" if instance_method && singleton_method
       raise "Cannot leave both instance_method and singleton_method nil" if instance_method && singleton_method
 
-      mod = resolve_constant(class_path)
-      raise "Cannot find #{class_path}" unless mod.is_a?(Module)
+      path = class_name.split(/::/)
+      if path.first == ""
+        path[0] = :root
+      end
+      mod = lookup_constant_path(path, current_module: object_class, module_context: [])
+      raise "Cannot find #{class_name}" unless mod.is_a?(Module)
 
       mod.defined_methods.find {|method| (instance_method && method.name == instance_method) || (singleton_method && method.name == singleton_method) }
     end
