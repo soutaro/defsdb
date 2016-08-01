@@ -25,11 +25,7 @@ module Defsdb
         env[name] = {
           type: const_type(constant),
           class: module_ref(constant.class),
-          methods: {
-            public: dump_methods(constant.public_methods) {|name| constant.method(name) },
-            private: dump_methods(constant.private_methods) {|name| constant.method(name) },
-            protected: dump_methods(constant.protected_methods) {|name| constant.method(name) }
-          }
+          singleton_methods: dump_methods(constant.singleton_methods) {|name| constant.methods(name) }
         }
       end
     end
@@ -37,7 +33,7 @@ module Defsdb
     def dump_module(klass)
       id = klass.__id__.to_s
 
-      return if @modules[id]
+      return id if @modules[id]
 
       hash =  {
         type: const_type(klass),
@@ -53,27 +49,18 @@ module Defsdb
         end
       end
 
-      hash[:included_modules] = klass.included_modules.map {|mod|
-        dump_module(mod)
-        module_ref(mod)
-      }
-
       hash[:ancestors] = klass.ancestors.map {|mod|
         dump_module(mod)
         module_ref(mod)
       }
 
       hash[:instance_methods] = {
-        public: dump_methods(klass.public_instance_methods) {|name| klass.instance_method(name) },
-        private: dump_methods(klass.private_instance_methods) {|name| klass.instance_method(name) },
-        protected: dump_methods(klass.protected_instance_methods) {|name| klass.instance_method(name) }
+        public: dump_methods(klass.public_instance_methods(false)) {|name| klass.instance_method(name) },
+        private: dump_methods(klass.private_instance_methods(false)) {|name| klass.instance_method(name) },
+        protected: dump_methods(klass.protected_instance_methods(false)) {|name| klass.instance_method(name) }
       }
 
-      hash[:methods] = {
-        public: dump_methods(klass.public_methods) {|name| klass.method(name) },
-        private: dump_methods(klass.private_methods) {|name| klass.method(name) },
-        protected: dump_methods(klass.protected_methods) {|name| klass.method(name) }
-      }
+      hash[:singleton_methods] = dump_methods(klass.singleton_methods) {|name| klass.method(name) }
 
       hash[:constants] = klass.constants(false).each.with_object({}) do |name, env|
         safely_get_constant(klass, name) do |constant|
@@ -82,11 +69,8 @@ module Defsdb
       end
     end
 
-    def module_ref(klass)
-      {
-        id: klass.__id__.to_s,
-        name: klass.name
-      }
+    def module_ref(mod)
+      mod.__id__.to_s
     end
 
     def const_type(constant)
@@ -115,10 +99,7 @@ module Defsdb
           parameters: method.parameters
         }
 
-        {
-          id: id,
-          name: name.to_s
-        }
+        id
       end
     end
 
